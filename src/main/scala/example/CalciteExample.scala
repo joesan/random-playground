@@ -1,12 +1,21 @@
 package example
 
+import org.apache.calcite.DataContext
 import org.apache.calcite.jdbc.{CalciteSchema, JavaTypeFactoryImpl}
-import org.apache.calcite.rel.`type`.RelDataTypeFactory
+import org.apache.calcite.linq4j.{Enumerable, Linq4j}
+import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory}
+import org.apache.calcite.schema.ScannableTable
+import org.apache.calcite.schema.impl.AbstractTable
 import org.apache.calcite.sql.`type`.SqlTypeName
 
 import scala.jdk.CollectionConverters._
 
 object Hello extends Greeting with App {
+
+  class ListTable[T](rowType: RelDataType, data: Seq[T]) extends AbstractTable with ScannableTable {
+    override def scan(root: DataContext): Enumerable[Array[AnyRef]] = Linq4j.asEnumerable(data.asJava)
+    override def getRowType(typeFactory: RelDataTypeFactory): RelDataType = rowType
+  }
 
   val books = Seq(
     (1, "Les Miserables", 1862, 2),
@@ -35,7 +44,7 @@ object Hello extends Greeting with App {
   authorType.add("last_name", SqlTypeName.VARCHAR)
 
   // Initialize authors table with data
-  val authorsTable = new ListTable(authorType.build(), authors.asJava);
+  val authorsTable = new ListTable(authorType.build(), authors);
   // Add authors table to the schema
   schema.add("author", authorsTable);
 
@@ -45,6 +54,11 @@ object Hello extends Greeting with App {
   bookType.add("book_title", SqlTypeName.VARCHAR)
   bookType.add("year", SqlTypeName.VARCHAR)
   bookType.add("author", SqlTypeName.INTEGER)
+
+  // Initialize books table with data
+  val booksTable = new ListTable(bookType.build(), books);
+  // Add authors table to the schema
+  schema.add("book", booksTable);
 }
 
 trait Greeting {
