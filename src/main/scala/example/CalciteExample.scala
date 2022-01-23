@@ -1,16 +1,22 @@
 package example
 
 import org.apache.calcite.DataContext
+import org.apache.calcite.config.{CalciteConnectionConfigImpl, CalciteConnectionProperty}
 import org.apache.calcite.jdbc.{CalciteSchema, JavaTypeFactoryImpl}
 import org.apache.calcite.linq4j.{Enumerable, Linq4j}
+import org.apache.calcite.prepare.CalciteCatalogReader
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory}
 import org.apache.calcite.schema.ScannableTable
 import org.apache.calcite.schema.impl.AbstractTable
 import org.apache.calcite.sql.`type`.SqlTypeName
+import org.apache.calcite.sql.fun.SqlStdOperatorTable
+import org.apache.calcite.sql.parser.SqlParser
+import org.apache.calcite.sql.validate.{SqlValidator, SqlValidatorUtil}
 
+import java.util.{Collections, Properties}
 import scala.jdk.CollectionConverters._
 
-object Hello extends Greeting with App {
+object CalciteExample extends Greeting with App {
 
   class ListTable[T](rowType: RelDataType, data: Seq[T]) extends AbstractTable with ScannableTable {
     override def scan(root: DataContext): Enumerable[Array[AnyRef]] = Linq4j.asEnumerable(data.asJava)
@@ -59,6 +65,33 @@ object Hello extends Greeting with App {
   val booksTable = new ListTable(bookType.build(), books);
   // Add authors table to the schema
   schema.add("book", booksTable);
+
+  // Create a parser for the SQL query
+  val parser = SqlParser.create(
+    "SELECT b.id, b.title, b.\"year\", a.fname || ' ' || a.lname \n"
+      + "FROM Book b\n"
+      + "LEFT OUTER JOIN Author a ON b.author=a.id\n"
+      + "WHERE b.\"year\" > 1830\n"
+      + "ORDER BY b.id\n"
+      + "LIMIT 5")
+
+  // Parse the query into an AST
+  val sqlNode = parser.parseQuery
+
+  // Configure and instantiate validator
+  val props = new Properties();
+  props.setProperty(CalciteConnectionProperty.CASE_SENSITIVE.camelName(), "false");
+  val config = new CalciteConnectionConfigImpl(props);
+  val catalogReader = new CalciteCatalogReader(schema,
+    Collections.singletonList(""),
+    typeFactory, config);
+
+  val validator = SqlValidatorUtil.newValidator(SqlStdOperatorTable.instance(),
+    catalogReader, typeFactory,
+    SqlValidator.Config.DEFAULT);
+
+  // Validate the initial AST
+  val validNode = validator.validate(sqlNode);
 }
 
 trait Greeting {
