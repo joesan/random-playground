@@ -91,7 +91,7 @@ object CalciteExample extends Greeting with App {
     SqlValidator.Config.DEFAULT);
 
   // Validate the initial AST
-  val validNode = validator.validate(sqlNode);
+  val validNode = validator.validate(sqlNode)
 }
 
 trait Greeting {
