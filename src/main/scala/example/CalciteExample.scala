@@ -12,29 +12,58 @@ import org.apache.calcite.sql.`type`.SqlTypeName
 import org.apache.calcite.sql.fun.SqlStdOperatorTable
 import org.apache.calcite.sql.parser.SqlParser
 import org.apache.calcite.sql.validate.{SqlValidator, SqlValidatorUtil}
+import org.apache.calcite.plan.RelOptUtil
+import org.apache.calcite.sql.SqlExplainFormat
+import org.apache.calcite.sql.SqlExplainLevel
+import org.apache.calcite.sql2rel.SqlToRelConverter
+import org.apache.calcite.sql2rel.StandardConvertletTable
+import org.apache.calcite.plan.ConventionTraitDef
+import org.apache.calcite.plan.RelOptCluster
+import org.apache.calcite.plan.volcano.VolcanoPlanner
+import org.apache.calcite.rex.RexBuilder
 
 import java.util.{Collections, Properties}
 import scala.jdk.CollectionConverters._
 
 object CalciteExample extends Greeting with App {
 
-  class ListTable[T](rowType: RelDataType, data: Seq[T]) extends AbstractTable with ScannableTable {
-    override def scan(root: DataContext): Enumerable[Array[AnyRef]] = Linq4j.asEnumerable(data.asJava)
+  def newCluster(factory: RelDataTypeFactory) = {
+    val planner = new VolcanoPlanner
+    planner.addRelTraitDef(ConventionTraitDef.INSTANCE)
+    RelOptCluster.create(planner, new RexBuilder(factory))
+  }
+
+  class ListTable(rowType: RelDataType, data: List[Array[Any]]) extends AbstractTable with ScannableTable {
+    override def scan(root: DataContext): Enumerable[Array[Any]] = Linq4j.asEnumerable(data.asJava)
     override def getRowType(typeFactory: RelDataTypeFactory): RelDataType = rowType
   }
 
-  val books = Seq(
+  val books: List[Array[Any]] = List(
+    Array[Any](1, "Les Miserables", 1862, 2),
+    Array[Any](2, "The Hunchback of Notre-Dame", 1829, 2),
+    Array[Any](3, "The Last Day of a Condemned Man", 1829, 1),
+    Array[Any](4, "The three Musketeers", 1844, 2),
+    Array[Any](5, "The Count of Monte Cristo", 1884, 1),
+    Array[Any](6, "The Blockchain", 1899, 1)
+  )
+/*
+  val books = List(
     (1, "Les Miserables", 1862, 2),
     (2, "The Hunchback of Notre-Dame", 1829, 2),
     (3, "The Last Day of a Condemned Man", 1829, 1),
     (4, "The three Musketeers", 1866, 2),
     (5, "The Count of Monte Cristo", 1880, 1),
-    (6, "The Blockchain", 1899, 1),
+    (6, "The Blockchain", 1899, 1)
   )
 
-  val authors = Seq(
+  val authors = List(
     (1, "Joe 1", "San 1"),
     (2, "Joe 2", "San 2")
+  ) */
+
+  val authors = List(
+    Array[Any](1, "Joe 1", "San 1"),
+    Array[Any](2, "Joe 2", "San 2")
   )
 
   // Instantiate a type factory for creating types (e.g., VARCHAR, NUMERIC, etc.)
@@ -46,8 +75,8 @@ object CalciteExample extends Greeting with App {
   // Define type for authors table
   val authorType = new RelDataTypeFactory.Builder(typeFactory)
   authorType.add("id", SqlTypeName.INTEGER)
-  authorType.add("first_name", SqlTypeName.VARCHAR)
-  authorType.add("last_name", SqlTypeName.VARCHAR)
+  authorType.add("fname", SqlTypeName.VARCHAR)
+  authorType.add("lname", SqlTypeName.VARCHAR)
 
   // Initialize authors table with data
   val authorsTable = new ListTable(authorType.build(), authors);
@@ -57,7 +86,7 @@ object CalciteExample extends Greeting with App {
   // Define type for books table
   val bookType = new RelDataTypeFactory.Builder(typeFactory)
   bookType.add("id", SqlTypeName.INTEGER)
-  bookType.add("book_title", SqlTypeName.VARCHAR)
+  bookType.add("title", SqlTypeName.VARCHAR)
   bookType.add("year", SqlTypeName.VARCHAR)
   bookType.add("author", SqlTypeName.INTEGER)
 
@@ -92,6 +121,17 @@ object CalciteExample extends Greeting with App {
 
   // Validate the initial AST
   val validNode = validator.validate(sqlNode)
+
+  // Configure and instantiate the converter of the AST to Logical plan (requires opt cluster)
+  val NOOP_EXPANDER = (rowType, queryString, schemaPath, viewPath) -> null
+  val cluster = newCluster(typeFactory)
+  val relConverter = new SqlToRelConverter(NOOP_EXPANDER, validator, catalogReader, cluster, StandardConvertletTable.INSTANCE, SqlToRelConverter.config)
+
+  // Convert the valid AST into a logical plan
+  val logPlan = relConverter.convertQuery(validNode, false, true).rel
+
+  // Display the logical plan
+  System.out.println(RelOptUtil.dumpPlan("[Logical plan]", logPlan, SqlExplainFormat.TEXT, SqlExplainLevel.EXPPLAN_ATTRIBUTES))
 }
 
 trait Greeting {
