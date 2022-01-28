@@ -27,6 +27,10 @@ import scala.jdk.CollectionConverters._
 
 object CalciteExample extends Greeting with App {
 
+  trait Functor[F[_]] {
+    def map[A, B](f: A => B)(fa: F[A]): F[B]
+  }
+
   def newCluster(factory: RelDataTypeFactory) = {
     val planner = new VolcanoPlanner
     planner.addRelTraitDef(ConventionTraitDef.INSTANCE)
@@ -46,20 +50,6 @@ object CalciteExample extends Greeting with App {
     Array[Any](5, "The Count of Monte Cristo", 1884, 1),
     Array[Any](6, "The Blockchain", 1899, 1)
   )
-/*
-  val books = List(
-    (1, "Les Miserables", 1862, 2),
-    (2, "The Hunchback of Notre-Dame", 1829, 2),
-    (3, "The Last Day of a Condemned Man", 1829, 1),
-    (4, "The three Musketeers", 1866, 2),
-    (5, "The Count of Monte Cristo", 1880, 1),
-    (6, "The Blockchain", 1899, 1)
-  )
-
-  val authors = List(
-    (1, "Joe 1", "San 1"),
-    (2, "Joe 2", "San 2")
-  ) */
 
   val authors = List(
     Array[Any](1, "Joe 1", "San 1"),
